@@ -33,15 +33,15 @@ _teams_codes_map_2019 = {
     'LDLC ASVEL Villeurbanne': 'ASV',
     'Zenit St Petersburg': 'DYR'
 }
-_teams_codes_map_all = dict(_teams_codes_map_general, **_teams_codes_map_2018,
-                            **_teams_codes_map_2019)
-_teams_names_codes_map = {
+teams_codes_map_all = dict(_teams_codes_map_general, **_teams_codes_map_2018,
+                           **_teams_codes_map_2019)
+teams_names_codes_map = {
     2018: dict(_teams_codes_map_general, **_teams_codes_map_2018),
     2019: dict(_teams_codes_map_general, **_teams_codes_map_2019)
 }
 _n_teams_per_season = {
     season: len(codes_map)
-    for season, codes_map in _teams_names_codes_map.items()
+    for season, codes_map in teams_names_codes_map.items()
 }
 _recognizable_team_codes = {
     'MAD': 'RMD', 'TEL': 'MTA', 'PAM': 'VAL',
@@ -75,7 +75,7 @@ def _scrape_team_data(team_code, season):
 
 
 def get_teams_data(season, teams_codes=None,
-                   names_codes_map=_teams_names_codes_map):
+                   names_codes_map=teams_names_codes_map):
     """
     Loop over all teams in a specific euroleague season and scrape their stats
 
@@ -121,7 +121,7 @@ def _clean_row(page_tables_row, remove_empty_elements=True):
 
 
 def _raw_team_name_to_code(team_name_table_row,
-                           names_codes_map=_teams_codes_map_all):
+                           names_codes_map=teams_codes_map_all):
     """
     Clean full team name from html table row and replace it with team code
 
@@ -223,7 +223,7 @@ def get_games_scores(season, teams_data):
         .split(' - ', expand=True)
 
     # replace opponent teams names with their code
-    games['opponent'] = games['opponent'].replace(_teams_codes_map_all)
+    games['opponent'] = games['opponent'].replace(teams_codes_map_all)
 
     # set correct dtype for integer columns
     int_cols = ['round', 'home_score', 'away_score']
