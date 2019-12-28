@@ -181,15 +181,15 @@ def _get_possessions(df_row):
     return poss
 
 
-def get_games_scores(season, teams_data):
+def get_games_scores(season):
     """
     Loop over all teams in a season, scrape scores from each game,
     parse tha data, and return in clean dataframe
 
     :param season: integer indicating season start year
-    :param teams_data: dict. output of get_teams_data()
     :return: pandas.DataFrame
     """
+    teams_data = get_teams_data(season)
     website_games_columns = ['round', 'outcome', 'location_opponent', 'score']
     games = pd.DataFrame()
     team_codes = teams_data.keys()
