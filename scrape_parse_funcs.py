@@ -43,8 +43,8 @@ _n_teams_per_season = {
     season: len(codes_map)
     for season, codes_map in teams_names_codes_map.items()
 }
-_recognizable_team_codes = {
-    'MAD': 'RMD', 'TEL': 'MTA', 'PAM': 'VAL',
+recognizable_team_codes = {
+    'MAD': 'RMD', 'TEL': 'MTA', 'PAM': 'VAL', 'PAN': 'PAO',
     'ULK': 'FNR', 'DYR': 'ZEN', 'IST': 'EFS'
 }
 
@@ -232,8 +232,8 @@ def get_games_scores(season, teams_data):
     # assign home and away team columns instead of team/opponent columns
     games['home_team'] = games.apply(_get_home_team, axis=1)
     games['away_team'] = games.apply(_get_away_team, axis=1)
-    games['home_team'] = games['home_team'].replace(_recognizable_team_codes)
-    games['away_team'] = games['away_team'].replace(_recognizable_team_codes)
+    games['home_team'] = games['home_team'].replace(recognizable_team_codes)
+    games['away_team'] = games['away_team'].replace(recognizable_team_codes)
     games['winner'] = games.apply(_get_winner, axis=1)
 
     # create a game id column
@@ -251,21 +251,24 @@ def get_games_scores(season, teams_data):
     return games
 
 
-def get_games_stats(season, completed_rounds):
+def get_games_stats(season, completed_rounds, rounds_already_scraped=0):
     """
     Loop over all games in a season, scrape teams total stats, parse the data
-    and return in a clean dataframe
+    and return in a tidy dataframe where each row is a team in a game
 
     :param season: integer indicating season start year
     :param completed_rounds: number of rounds played in the season
+    :param rounds_already_scraped: int, optional. rounds previously scraped.
+        if above 0 will start scraping from the next round
     :return: pandas.DataFrame
     """
     games_stats = pd.DataFrame()
     games_per_round = _n_teams_per_season[season] / 2
     n_games = int(completed_rounds * games_per_round)
+    first_game_to_scrape = int(rounds_already_scraped * games_per_round) + 1
 
     # loop over games
-    for game_code in range(1, n_games + 1):
+    for game_code in range(first_game_to_scrape, n_games + 1):
 
         # get game stats
         main_games_url = 'https://www.euroleague.net/main/results/showgame'
@@ -357,8 +360,8 @@ def get_games_stats(season, completed_rounds):
     # set columns to the right dtype
     games_stats['MTS'] = games_stats['MTS'].str.split(':', expand=True).iloc[:, 0]
     int_cols = [
-        'PTS', '2PM', '2PA', '3PM', '3PA', 'FTM', 'FTA', 'OREB',
-        'DREB', 'REB', 'AST', 'STL', 'TOV', 'BLK', 'PF', 'PIR', 'MTS'
+        'season', 'round', 'PTS', '2PM', '2PA', '3PM', '3PA', 'FTM', 'FTA',
+        'OREB', 'DREB', 'REB', 'AST', 'STL', 'TOV', 'BLK', 'PF', 'PIR', 'MTS'
     ]
 
     for col in int_cols:
@@ -367,6 +370,10 @@ def get_games_stats(season, completed_rounds):
     # calculate possessions - baseline for advanced stats
     games_stats['POSS'] = games_stats.apply(_get_possessions, axis=1)
 
+    # replace team codes with more recognizable versions
+    games_stats['team'].replace(recognizable_team_codes, inplace=True)
+    games_stats['game_id'].replace(recognizable_team_codes,
+                                   inplace=True, regex=True)
     games_stats.sort_values(by='round', inplace=True)
 
     return games_stats
