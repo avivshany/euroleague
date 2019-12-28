@@ -1,8 +1,14 @@
+import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import scrape_parse_funcs as sp
+import advanced_stats_funcs as asf
+
+code_dir = os.getcwd()
+data_dir = '..\\data'
+plots_dir = '..\\teams_plots'
 
 stats_descriptions = {
     '3PR': '3-point rate (% of shots that were 3-pointers)',
@@ -35,6 +41,76 @@ stats_descriptions = {
     'home_advantage': 'home win% - away win %',
     'win%': '% of games won'
 }
+
+
+def get_data(df_name, seasons_rounds, scraped_until_round=0, overwrite=False):
+    """"""
+    os.chdir(data_dir)
+    scrape_all = False
+    df = pd.DataFrame()
+
+    # loop over seasons
+    for season in seasons_rounds.keys():
+        n_rounds = seasons_rounds[season]
+        df_path = '{}_{}_r{}.csv'.format(df_name, season, n_rounds)\
+            .replace('teams_stats', 'games_stats')
+
+        # set the right function to use for getting data
+        if df_name == 'teams_stats':
+            get_data_func = sp.get_games_stats
+            kwargs = {'season': season, 'completed_rounds': n_rounds,
+                      'rounds_already_scraped': scraped_until_round}
+        elif df_name == 'games_scores':
+            get_data_func = sp.get_games_scores
+            kwargs = {'season': season}
+        else:
+            raise ValueError('df_name must be teams_stats or games_scores')
+
+        # if updated file already exists, read it instead of scraping
+        if (os.path.exists(df_path)) & (overwrite is False):
+            curr_season_df = pd.read_csv(df_path)
+        else:
+
+            # if a scraped file until a specific round exists, read it,
+            # scrape remaining rounds, and concatenate the two
+            if (scraped_until_round > 0) & (overwrite is False):
+                existing_df_path = '{}_{}_r{}.csv'.format(
+                    df_name, season, scraped_until_round
+                ).replace('teams_stats', 'games_stats')
+
+                if os.path.exists(existing_df_path):
+                    existing_season_df = pd.read_csv(existing_df_path)
+                    txt = 'Scraping {} for season {} starting from round {}'
+                    print(txt.format(df_name, season, scraped_until_round + 1))
+                    remaining_season_df = get_data_func(**kwargs)
+                    curr_season_df = pd.concat(
+                        [existing_season_df, remaining_season_df], sort=False
+                    )
+                else:
+                    print(existing_df_path + 'does not exist')
+                    scrape_all = True
+            # if no file exists or overwriting, scrape all games for the season
+            else:
+                scrape_all = True
+
+        if scrape_all:
+            print('Scraping all {} data for season {}'.format(df_name, season))
+            curr_season_df = get_data_func(**kwargs)
+            curr_season_df.to_csv(df_path, index=False)
+
+        # if df is teams_stats calculate advanced statistics per team
+        if df_name == 'teams_stats':
+            curr_season_df = asf.get_overall_teams_opponents_stats(
+                games_stats_df=curr_season_df, season=season
+            )
+            curr_season_df = asf.get_team_advanced_stats(curr_season_df)
+
+        # concatenate current season's df with all seasons
+        df = pd.concat([df, curr_season_df], sort=False)
+
+    df.reset_index(inplace=True, drop=True)
+
+    return df
 
 
 def plot_bivariate(
