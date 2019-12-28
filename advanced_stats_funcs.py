@@ -25,7 +25,8 @@ def get_overall_teams_opponents_stats(
     teams_stats = pd.DataFrame()
 
     if not team_codes:
-        team_codes = sp.teams_names_codes_map[season].values()
+        team_codes = pd.Series(list(sp.teams_names_codes_map[season].values()))
+        team_codes.replace(sp.recognizable_team_codes, inplace=True)
 
     for team_code in team_codes:
 
@@ -115,4 +116,12 @@ def get_team_advanced_stats(df):
     df['DRtg'] = 100 * df['OP_PTS'] / df['OP_POSS']
     df['NETRtg'] = df['ORtg'] - df['DRtg']
 
-    return df
+    cols_to_use = [
+        'team', 'PTS40', 'OP_PTS40', '3P%', 'OP_3P%', '2P%', 'OP_2P%', 'FT%',
+        '3PR', 'OP_3PR', 'FTR', 'OP_FTR', 'OREB%', 'DREB%', 'ASTR', 'OP_ASTR',
+        'TOVR', 'OP_TOVR', 'AST-TOV_R', 'OP_AST-TOV_R', 'STLR', 'OP_STLR',
+        'BLKR', 'OP_BLKR', 'PACE', 'ORtg', 'DRtg', 'NETRtg', 'eFG%', 'OP_eFG%',
+        'TS%', 'OP_TS%'
+    ]
+
+    return df[cols_to_use]
