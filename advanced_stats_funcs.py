@@ -1,5 +1,95 @@
 import pandas as pd
+from pandasql import sqldf
 import scrape_parse_funcs as sp
+
+
+def get_win_ratios(games_stats):
+    """
+    Use SQL queries to calculate percentage of wins home and away for each team
+
+    :param games_stats: dataframe with teams scraped box-score stats
+        from each game in a euroleague season
+    :return: pandas.DataFrame
+    """
+    # write query to create df containing teams, and wins by location per game
+    game_location_data = sqldf("""
+    SELECT h.game_id,
+        h.team AS home_team,
+        a.team AS away_team,
+        h.PTS as home_team_points,
+        a.PTS as away_team_points,
+        h.POSS as home_team_possessions,
+        a.POSS as away_team_possessions,
+        CASE WHEN h.PTS > a.PTS THEN 1 ELSE 0 END AS home_win,
+        CASE WHEN h.PTS < a.PTS THEN 1 ELSE 0 END AS away_win
+    FROM (SELECT * FROM games_stats WHERE location='home_team') AS h
+    LEFT JOIN (SELECT * FROM games_stats WHERE location='away_team') AS a
+        ON h.game_id = a.game_id
+        AND h.team != a.team
+    """)
+
+    # create a df summarising wins per team by location
+    wins_by_location = sqldf("""
+    WITH home_wins AS(
+        SELECT home_team,
+            SUM(home_win) AS home_wins,
+            SUM(away_win) AS home_losses,
+            COUNT(home_win) AS home_games,
+            100 * SUM(home_win) / COUNT(home_win) AS home_win_pct
+        FROM game_location_data
+        GROUP BY home_team
+    ),
+    away_wins AS (
+        SELECT away_team,
+            SUM(home_win) AS away_losses,
+            SUM(away_win) AS away_wins,
+            COUNT(away_win) AS away_games,
+            100 * SUM(away_win) / COUNT(away_win) AS away_win_pct
+        FROM game_location_data
+        GROUP BY away_team
+    )
+
+    SELECT hw.home_team AS team,
+        hw.home_win_pct,
+        aw.away_win_pct,
+        100 * (hw.home_wins + aw.away_wins) / (hw.home_games + aw.away_games) AS win_pct,
+        hw.home_win_pct - aw.away_win_pct AS home_advantage
+    FROM home_wins AS hw
+    JOIN away_wins AS aw
+        ON hw.home_team = aw.away_team
+    """)
+
+    # # create a df summarising net rating per team by location
+    # rating_by_location = sqldf("""
+    # WITH home_team_points AS(
+    #     SELECT home_team,
+    #         SUM(home_team_points) AS home_points,
+    #         SUM(home_team_possessions) AS home_possessions,
+    #         100 * SUM(home_team_points) / SUM(home_team_possessions) AS home_offensive_rating
+    #     FROM game_location_data
+    #     GROUP BY home_team
+    # ),
+    # away_wins AS (
+    #     SELECT away_team,
+    #         SUM(home_win) AS away_losses,
+    #         SUM(away_win) AS away_wins,
+    #         COUNT(away_win) AS away_games,
+    #         100 * SUM(away_win) / COUNT(away_win) AS away_win_pct
+    #     FROM game_location_data
+    #     GROUP BY away_team
+    # )
+    #
+    # SELECT hw.home_team AS team,
+    #     hw.home_win_pct,
+    #     aw.away_win_pct,
+    #     100 * (hw.home_wins + aw.away_wins) / (hw.home_games + aw.away_games) AS win_pct,
+    #     hw.home_win_pct - aw.away_win_pct AS home_advantage
+    # FROM home_wins AS hw
+    # JOIN away_wins AS aw
+    #     ON hw.home_team = aw.away_team
+    # """)
+
+    return wins_by_location.round(2)
 
 
 def get_overall_teams_opponents_stats(
