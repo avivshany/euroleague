@@ -41,15 +41,22 @@ stats_descriptions = {
     'OP_ASTR':'Opponent assist rate (assists per 100 field goals made)',
     'TOVR': 'Turnover rate (turnovers per 100 possessions)',
     'OP_TOVR': 'Opponent turnover rate (turnovers per 100 possessions)',
-    'STLR': 'Steals rate (steals per 100 opponents posessions)',
-    'OP_STLR': 'Opponents steals rate (opponent steals per 100 team posessions)',
+    'STLR': 'Steals rate (steals per 100 opponents possessions)',
+    'OP_STLR': 'Opponents steals rate (opponent steals per 100 team possessions)',
     'BLKR': 'Blocks rate (blocks per 100 opponents 2-point attempts)',
     'OP_BLKR': 'Opponent Blocks rate (blocks against per 100 team 2-point attempts)',
     'PACE': 'PACE (possessions per 40 minutes)',
-    'home_advantage': 'home win% - away win %',
+    'home_win_advantage': 'home win% - away win %',
     'win_pct': '% of games won',
     'home_win_pct': '% of home games won',
-    'away_win_pct': '% of away games won'
+    'away_win_pct': '% of away games won',
+    'home_ORtg': 'Offensive rating in home games',
+    'home_DRtg': 'Defensive rating in home games',
+    'home_NETRtg': 'Net rating in home games',
+    'away_ORtg': 'Offensive rating in away games',
+    'away_DRtg': 'Defensive rating in away games',
+    'away_NETRtg': 'Net rating in away games',
+    'home_NETRtg_advantage': 'Home net rating - Away net_rating'
 }
 
 
@@ -105,7 +112,7 @@ def get_teams_stats(seasons_rounds, scraped_until_round=0, overwrite=False):
             season_games_stats.to_csv(games_stats_path, index=False)
 
         # get teams win ratios from games_stats to later join to teams_stats
-        season_win_ratios = asf.get_win_ratios(season_games_stats)
+        season_home_advantage = asf.get_home_advantage_vars(season_games_stats)
 
         # calculate advanced stats per team from games_stats
         season_teams_stats = asf.get_overall_teams_opponents_stats(
@@ -115,7 +122,7 @@ def get_teams_stats(seasons_rounds, scraped_until_round=0, overwrite=False):
 
         # join teams advances stats with win ratios
         season_teams_stats = season_teams_stats.merge(
-            season_win_ratios, on='team', validate='1:1'
+            season_home_advantage, on='team', validate='1:1'
         )
 
         # add season column and concatenate this season's stats with all seasons
