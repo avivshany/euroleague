@@ -1,6 +1,5 @@
 import requests
 import lxml.html as lh
-import numpy as np
 import pandas as pd
 import math
 
@@ -58,49 +57,6 @@ def _scrape_data(url):
     return tr_elements
 
 
-def _scrape_team_data(team_code, season):
-    """
-    Scrape a team's games data for url defined by team code and season
-
-    :param team_code: 3 letter team character code
-    :param season: year of euroleague season start for which to scrape data
-    :return: list of lxml.html.HtmlElement objects
-    """
-    teams_main_url = 'https://www.euroleague.net/competition/teams/showteam?'
-    team_season_url = 'clubcode={}&seasoncode=E{}'.format(team_code, season)
-    url = teams_main_url + team_season_url
-    team_games_data = _scrape_data(url)
-
-    return team_games_data
-
-
-def get_teams_data(season, teams_codes=None,
-                   names_codes_map=teams_names_codes_map):
-    """
-    Loop over all teams in a specific euroleague season and scrape their stats
-
-    :param season: integer indicating season start year
-    :param teams_codes: list, optional. codes of specific teams to scrape
-    :param names_codes_map: dict, used to get all team codes if teams_codes=None
-        nested dict where top level keys are year integers indicating the
-        seasons start year, and  values are dictionaries where keys are full
-        names of all teams in the relevant season, and values are their codes.
-
-    :return: dict. keys are team codes and values are lists of
-        lxml.html.HtmlElement objects with their stats data for that season
-    """
-    teams_data = dict()
-    use_all_teams = False if teams_codes else True
-
-    if use_all_teams:
-        teams_codes = names_codes_map[season].values()
-
-    for team in teams_codes:
-        teams_data[team] = _scrape_team_data(team_code=team, season=season)
-
-    return teams_data
-
-
 def _clean_row(page_tables_row, remove_empty_elements=True):
     """
     Remove special formatting characters from web page tables data
@@ -137,118 +93,12 @@ def _raw_team_name_to_code(team_name_table_row,
     return team_code
 
 
-def _get_home_team(df_row):
-    """Get home team for game. games df must include a 'location' column"""
-    if df_row['location'] == 'home':
-        home_team = df_row['team']
-    elif df_row['location'] == 'away':
-        home_team = df_row['opponent']
-    else:
-        home_team = np.nan
-
-    return home_team
-
-
-def _get_away_team(df_row):
-    """Get away team for game. games df must include a 'location' column"""
-    if df_row['location'] == 'home':
-        away_team = df_row['opponent']
-    elif df_row['location'] == 'away':
-        away_team = df_row['team']
-    else:
-        away_team = np.nan
-
-    return away_team
-
-
-def _get_winner(df_row):
-    """Get game's winning team. df must include {home, away}_score columns"""
-    if df_row['home_score'] > df_row['away_score']:
-        winner = df_row['home_team']
-    elif df_row['home_score'] < df_row['away_score']:
-        winner = df_row['away_team']
-    else:
-        winner = np.nan
-
-    return winner
-
-
 def _get_possessions(df_row):
     """Get number of possessions per team in game. to use on games_stats df"""
     poss = df_row['2PA'] + df_row['3PA'] + (0.44 * df_row['FTA']) -\
         df_row['OREB'] + df_row['TOV']
 
     return poss
-
-
-def get_games_scores(season):
-    """
-    Loop over all teams in a season, scrape scores from each game,
-    parse tha data, and return in clean dataframe
-
-    :param season: integer indicating season start year
-    :return: pandas.DataFrame
-    """
-    teams_data = get_teams_data(season)
-    website_games_columns = ['round', 'outcome', 'location_opponent', 'score']
-    games = pd.DataFrame()
-    team_codes = teams_data.keys()
-    n_rounds = 2 * (_n_teams_per_season[season] - 1)
-
-    # loop over teams
-    for team in team_codes:
-        team_games = pd.DataFrame(
-            columns=website_games_columns + ['team', 'season']
-        )
-        tr_elements = teams_data[team]
-
-        # loop over games
-        for game_num, game_score in enumerate(tr_elements[:n_rounds]):
-            curr_game = _clean_row(game_score)
-
-            # rows with 3 elements represent games that were not played yet
-            if len(curr_game) > 3:
-                team_games.loc[game_num, website_games_columns] = curr_game
-
-        # join team games to all games
-        team_games['team'] = team
-        team_games['season'] = season
-        games = pd.concat([games, team_games])
-
-    # split columns to create a single column for each data point
-    games[['location', 'opponent']] = games['location_opponent'].str\
-        .split(' ', n=1, expand=True)
-    games['location'].replace({'at': 'away', 'vs': 'home'}, inplace=True)
-    games[['home_score', 'away_score']] = games['score'].str\
-        .split(' - ', expand=True)
-
-    # replace opponent teams names with their code
-    games['opponent'] = games['opponent'].replace(teams_codes_map_all)
-
-    # set correct dtype for integer columns
-    int_cols = ['round', 'home_score', 'away_score']
-    games[int_cols] = games[int_cols].astype(int)
-
-    # assign home and away team columns instead of team/opponent columns
-    games['home_team'] = games.apply(_get_home_team, axis=1)
-    games['away_team'] = games.apply(_get_away_team, axis=1)
-    games['home_team'] = games['home_team'].replace(recognizable_team_codes)
-    games['away_team'] = games['away_team'].replace(recognizable_team_codes)
-    games['winner'] = games.apply(_get_winner, axis=1)
-
-    # create a game id column
-    games['game_id'] = games['season'].map(str) + '_' + games['round'].map(str)\
-        + '_' + games['home_team'] + '_' + games['away_team']
-
-    # select relevant columns in the right order
-    games = games[['game_id', 'season', 'round', 'home_team', 'away_team',
-                   'home_score', 'away_score', 'winner']]
-
-    # drop duplicated rows and sort
-    games.drop_duplicates(inplace=True)
-    games.sort_values(by='round', inplace=True)
-
-    return games
 
 
 def get_games_stats(season, completed_rounds, rounds_already_scraped=0):
