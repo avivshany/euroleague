@@ -6,6 +6,14 @@ import seaborn as sns
 import scrape_parse_funcs as sp
 import advanced_stats_funcs as asf
 
+################################################################################
+# Functions getting euroleague teams advanced stats and plotting them.
+
+# module for scraping and cleaning data from euroleague.net: scrape_parse_funcs
+# module for calculating advanced_stats: advanced_stats_funcs
+# plotting functions are defined in this module
+################################################################################
+
 code_dir = os.getcwd()
 data_dir = '..\\data'
 plots_dir = '..\\teams_plots'
@@ -39,87 +47,92 @@ stats_descriptions = {
     'OP_BLKR': 'Opponent Blocks rate (blocks against per 100 team 2-point attempts)',
     'PACE': 'PACE (possessions per 40 minutes)',
     'home_advantage': 'home win% - away win %',
-    'win%': '% of games won'
+    'win_pct': '% of games won',
+    'home_win_pct': '% of home games won',
+    'away_win_pct': '% of away games won'
 }
 
 
-def get_data(df_name, seasons_rounds, scraped_until_round=0, overwrite=False):
+def get_teams_stats(seasons_rounds, scraped_until_round=0, overwrite=False):
     """"""
     os.chdir(data_dir)
     scrape_all = False
-    df = pd.DataFrame()
+    teams_stats = pd.DataFrame()
 
     # loop over seasons
     for season in seasons_rounds.keys():
         n_rounds = seasons_rounds[season]
-        df_path = '{}_{}_r{}.csv'.format(df_name, season, n_rounds)\
-            .replace('teams_stats', 'games_stats')
-
-        # set the right function to use for getting data
-        if df_name == 'teams_stats':
-            get_data_func = sp.get_games_stats
-            kwargs = {'season': season, 'completed_rounds': n_rounds,
-                      'rounds_already_scraped': scraped_until_round}
-        elif df_name == 'games_scores':
-            get_data_func = sp.get_games_scores
-            kwargs = {'season': season}
-        else:
-            raise ValueError('df_name must be teams_stats or games_scores')
+        games_stats_path = 'games_stats_{}_r{}.csv'.format(season, n_rounds)
 
         # if updated file already exists, read it instead of scraping
-        if (os.path.exists(df_path)) & (overwrite is False):
-            curr_season_df = pd.read_csv(df_path)
+        if (os.path.exists(games_stats_path)) & (overwrite is False):
+            season_games_stats = pd.read_csv(games_stats_path)
         else:
 
             # if a scraped file until a specific round exists, read it,
             # scrape remaining rounds, and concatenate the two
             if (scraped_until_round > 0) & (overwrite is False):
-                existing_df_path = '{}_{}_r{}.csv'.format(
-                    df_name, season, scraped_until_round
-                ).replace('teams_stats', 'games_stats')
+                existing_games_stats_path = 'games_stats_{}_r{}.csv'.format(
+                    season, scraped_until_round
+                )
 
-                if os.path.exists(existing_df_path):
-                    existing_season_df = pd.read_csv(existing_df_path)
-                    txt = 'Scraping {} for season {} starting from round {}'
-                    print(txt.format(df_name, season, scraped_until_round + 1))
-                    remaining_season_df = get_data_func(**kwargs)
-                    curr_season_df = pd.concat(
-                        [existing_season_df, remaining_season_df], sort=False
+                if os.path.exists(existing_games_stats_path):
+                    existing_games_stats = pd.read_csv(existing_games_stats_path)
+                    txt = 'Scraping game stats for season {} from round {}'
+                    print(txt.format(season, scraped_until_round + 1))
+                    remaining_games_stats = sp.get_games_stats(
+                        season=season, completed_rounds=n_rounds,
+                        rounds_already_scraped=scraped_until_round
                     )
+                    season_games_stats = pd.concat(
+                        [existing_games_stats, remaining_games_stats], sort=False
+                    )
+                    season_games_stats.to_csv(games_stats_path, index=False)
                 else:
-                    print(existing_df_path + 'does not exist')
+                    print(existing_games_stats_path + 'does not exist')
                     scrape_all = True
+
             # if no file exists or overwriting, scrape all games for the season
             else:
                 scrape_all = True
 
         if scrape_all:
-            print('Scraping all {} data for season {}'.format(df_name, season))
-            curr_season_df = get_data_func(**kwargs)
-            curr_season_df.to_csv(df_path, index=False)
-
-        # if df is teams_stats calculate advanced statistics per team
-        if df_name == 'teams_stats':
-            curr_season_df = asf.get_overall_teams_opponents_stats(
-                games_stats_df=curr_season_df, season=season
+            print('Scraping all game stats data for season {}'.format(season))
+            season_games_stats = sp.get_games_stats(
+                season=season, completed_rounds=n_rounds,
+                rounds_already_scraped=scraped_until_round
             )
-            curr_season_df = asf.get_team_advanced_stats(curr_season_df)
+            season_games_stats.to_csv(games_stats_path, index=False)
 
-        # add season column and concatenate current season's df with all seasons
-        curr_season_df['season'] = season
-        df = pd.concat([df, curr_season_df], sort=False)
+        # get teams win ratios from games_stats to later join to teams_stats
+        season_win_ratios = asf.get_win_ratios(season_games_stats)
 
-    df.reset_index(inplace=True, drop=True)
+        # calculate advanced stats per team from games_stats
+        season_teams_stats = asf.get_overall_teams_opponents_stats(
+            games_stats_df=season_games_stats, season=season
+        )
+        season_teams_stats = asf.get_team_advanced_stats(season_teams_stats)
 
-    return df
+        # join teams advances stats with win ratios
+        season_teams_stats = season_teams_stats.merge(
+            season_win_ratios, on='team', validate='1:1'
+        )
+
+        # add season column and concatenate this season's stats with all seasons
+        season_teams_stats['season'] = season
+        teams_stats = pd.concat([teams_stats, season_teams_stats], sort=False)
+        teams_stats.reset_index(inplace=True, drop=True)
+
+    return teams_stats
 
 
 def plot_bivariate(
         df, x, y, hue, show_season=True, annotate_only_hue_true=False,
         fit_reg=False, xyline=False, figsize=(10, 8), suptitle=None, ticks=None,
         ticklabels=None, xlim=None, ylim=None, points_color='tab:orange',
-        line_color='black', annotations_colors=('tab:gray', 'tab:blue'),
-        text_size='medium', axes_labels_size=14, suptitle_size=14
+        regline_color='tab:blue', xy_line_color='black', text_size='medium',
+        annotations_colors=('tab:gray', 'tab:blue'), axes_labels_size=14,
+        suptitle_size=14
 ):
     """"""
     # create axis and plot
@@ -127,7 +140,8 @@ def plot_bivariate(
 
     p1 = sns.regplot(
         data=df, x=x, y=y, ax=ax, fit_reg=fit_reg, ci=False, color=points_color,
-        line_kws={'label': 'linear corr = {0:.2f}'.format(df[x].corr(df[y]))}
+        line_kws={'color': regline_color,
+                  'label': 'linear corr = {0:.2f}'.format(df[x].corr(df[y]))}
     )
 
     if fit_reg:
@@ -174,7 +188,7 @@ def plot_bivariate(
         ]
         # plot both limits against each other
         ax.plot(lims, lims, ls='--', label='{} = {}'.format(x, y),
-                color=line_color, alpha=0.75)
+                color=xy_line_color, alpha=0.75)
         ax.set_aspect('equal')
         ax.legend()
 
@@ -254,75 +268,6 @@ def sorted_barplot(
     return ax
 
 
-# def sorted_barplot(
-#         df, metrics, nrows, ncols, figsize, marked_team='MTA',
-#         show_season=True, team_colname='team', ax_title_size=16, tick_rot=45,
-#         colors=sns.color_palette(), upper_offset=0.1, lower_offset=0.3
-# ):
-#     """"""
-#     # if show_season=True show each team's seasons data separately
-#     # and set colors for bars to highlight bars of marked team
-#     if show_season:
-#         season_srs = df['season'].map(str).str.split('20', expand=True).iloc[:, 1]
-#         df['team_season'] = df[team_colname] + season_srs
-#         team_colname = 'team_season'
-#         teams_colors = {
-#             team_code: (colors[1] if marked_team in team_code else colors[0])
-#             for team_code in df[team_colname].unique()
-#         }
-#     else:
-#         teams_colors = {team: colors[0] for team in df[team_colname].unique()}
-#         teams_colors[marked_team] = colors[1]
-#
-#     # create subplots
-#     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize)
-#
-#     for facet_num, var in enumerate(metrics):
-#
-#         # subset data
-#         data = df[[var, team_colname]].sort_values(by=var)
-#         data.reset_index(inplace=True, drop=True)
-#
-#         # get handle for current axis
-#         if len(metrics) > 1:
-#             curr_ax = axes.ravel()[facet_num]
-#         else:
-#             curr_ax = axes
-#
-#         sns.barplot(data=data, x=team_colname, y=var,
-#                     ax=curr_ax, palette=teams_colors)
-#
-#         # set y axis limits
-#         if data[var].min() < 0:
-#             ylim_lower = data[var].min() + (data[var].min() * upper_offset)
-#         else:
-#             ylim_lower = max(data[var].min() - (data[var].min() * lower_offset), 0)
-#
-#         ylim_upper = data[var].max() + (data[var].max() * upper_offset)
-#         curr_ax.set_ylim(ylim_lower, ylim_upper)
-#
-#         # rotate x axis tick labels
-#         for tick in curr_ax.get_xticklabels():
-#             tick.set_fontsize(14)
-#             tick.set_rotation(tick_rot)
-#
-#         # print values on top of bars
-#         for index, row in data.iterrows():
-#             cond = ('BLK' in var) | ('STL' in var) | ('TOV' in var) | ('NETRtg' in var)
-#             value_to_print = round(row[var], 1) if cond else round(row[var])
-#             va = 'bottom' if row[var] > 0 else 'top'
-#             curr_ax.text(x=index, y=row[var], s=str(value_to_print),
-#                          color='black', ha="center", va=va)
-#
-#         # set titles and remove axis titles
-#         curr_ax.set_title(stats_descriptions[var], fontsize=ax_title_size)
-#         # curr_ax.set_xlabel('')
-#
-#     fig.tight_layout()
-#
-#     return fig, axes
-
-
 def plot_parallel_pairs(
         df, metric, iv='team', time_var='season', ax=None, figsize=(6, 10),
         marked_iv_value='MTA', points_color='tab:blue',
@@ -384,3 +329,5 @@ def plot_parallel_pairs(
     for tick in ax.xaxis.get_major_ticks():
         tick.label.set_fontsize(x_ticklabel_size)
 
+    if not ax:
+        return fig, ax
