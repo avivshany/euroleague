@@ -26,7 +26,7 @@ stats_descriptions = {
     'DRtg': 'Defensive rating (points conceded per 100 possessions)',
     'NETRtg': 'Net rating (Points differential per 100 possessions)',
     'eFG%': 'Effective field goal %',
-    'OP_eFG%': 'Oppoonents effective field goal %',
+    'OP_eFG%': 'Opponents effective field goal %',
     'PTS40': 'Points per 40 minutes',
     'OP_PTS40': 'Points conceded per 40 minutes',
     'TS%': 'True shooting %',
@@ -38,7 +38,7 @@ stats_descriptions = {
     'FTR': 'Free throw rate (free throws per 100 field goal attempts)',
     'OP_FTR': 'Opponents free throw rate (free throws per 100 field goal attempts)',
     'ASTR': 'Assist rate (assists per 100 field goals made)',
-    'OP_ASTR':'Opponent assist rate (assists per 100 field goals made)',
+    'OP_ASTR': 'Opponent assist rate (assists per 100 field goals made)',
     'TOVR': 'Turnover rate (turnovers per 100 possessions)',
     'OP_TOVR': 'Opponent turnover rate (turnovers per 100 possessions)',
     'STLR': 'Steals rate (steals per 100 opponents possessions)',
@@ -134,30 +134,38 @@ def get_teams_stats(seasons_rounds, scraped_until_round=0, overwrite=False):
 
 
 def plot_bivariate(
-        df, x, y, hue, show_season=True, annotate_only_hue_true=False,
-        fit_reg=False, xyline=False, figsize=(10, 8), suptitle=None, ticks=None,
-        ticklabels=None, xlim=None, ylim=None, points_color='tab:orange',
-        regline_color='tab:blue', xy_line_color='black', text_size='medium',
-        annotations_colors=('tab:gray', 'tab:blue'), axes_labels_size=14,
-        suptitle_size=14
+        df, x, y, hue=None, show_season=True, annotate_only_hue_true=False,
+        dont_annotate_hue_na=True, fit_reg=False, xyline=False,
+        figsize=(10, 8), suptitle=None, text_size='medium',
+        suptitle_size=14, axes_labels_size=14
 ):
     """"""
+    # set colors for plot and annotations
+    if hue is None:
+        text_colors = {team: 'tab:blue' for team in df['team']}
+        plot_color = 'tab:orange'
+
+    else:
+        text_colors = {team: 'tab:gray' for team in df['team']}
+        marked_teams = df[hue].dropna().unique()
+        plot_color = 'tab:orange' if len(marked_teams) == 1 else 'tab:gray'
+        annotations_colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red']
+
+        for marked_team_num, marked_team in enumerate(marked_teams):
+            text_colors[marked_team] = annotations_colors[marked_team_num]
+
     # create axis and plot
     fig, ax = plt.subplots(figsize=figsize)
 
     p1 = sns.regplot(
-        data=df, x=x, y=y, ax=ax, fit_reg=fit_reg, ci=False, color=points_color,
-        line_kws={'color': regline_color,
-                  'label': 'linear corr = {0:.2f}'.format(df[x].corr(df[y]))}
+        data=df, x=x, y=y, ax=ax, fit_reg=fit_reg, ci=False, color=plot_color,
+        line_kws={'label': 'linear corr = {0:.2f}'.format(df[x].corr(df[y]))},
+        scatter_kws={'alpha': 0.5, 'edgecolor': 'white'}
     )
-
-    if fit_reg:
-        ax.legend()
 
     # add annotations to points
     for row in range(df.shape[0]):
-        color_loc = 1 if df[hue].iloc[row] else 0
-        color = annotations_colors[color_loc]
+        color = text_colors[df['team'].iloc[row]]
         season = str(df['season'].iloc[row])[2:]
 
         if show_season:
@@ -170,6 +178,11 @@ def plot_bivariate(
             if not df[hue].iloc[row]:
                 text = ''
 
+        if (hue is not None) & dont_annotate_hue_na:
+
+            if pd.isna(df[hue].iloc[row]):
+                text = ''
+
         p1.text(
             y=df[y].iloc[row], x=df[x].iloc[row], s=text,
             horizontalalignment='center', size=text_size, weight='semibold',
@@ -180,14 +193,6 @@ def plot_bivariate(
     ax.set_xlabel(stats_descriptions[x], fontsize=axes_labels_size)
     ax.set_ylabel(stats_descriptions[y], fontsize=axes_labels_size)
 
-    if ticks:
-        ax.set_xticks(ticks)
-        ax.set_yticks(ticks)
-
-    if ticklabels:
-        ax.set_xticklabels(ticklabels)
-        ax.set_yticklabels(ticklabels)
-
     if xyline:
         lims = [
             np.min([ax.get_xlim(), ax.get_ylim()]),
@@ -195,41 +200,53 @@ def plot_bivariate(
         ]
         # plot both limits against each other
         ax.plot(lims, lims, ls='--', label='{} = {}'.format(x, y),
-                color=xy_line_color, alpha=0.75)
+                color='black', alpha=0.75)
         ax.set_aspect('equal')
-        ax.legend()
 
     if suptitle:
         fig.suptitle(suptitle, fontsize=suptitle_size)
 
-    if xlim:
-        ax.set_xlim(xlim)
-
-    if ylim:
-        ax.set_ylim(ylim)
+    # if plotting regression line or xy line add legend with correlation value
+    if fit_reg | xyline:
+        ax.legend()
 
     return fig, ax
 
 
 def sorted_barplot(
-        df, metric, ax=None, marked_team='MTA', show_season=True,
-        team_colname='team', title_size=16, tick_rot=45, figsize=(10, 6),
-        colors=['tab:blue', 'tab:orange'], upper_offset=0.1, lower_offset=0.3
+        df, metric, ax=None, marked_teams=None, show_season=True,
+        title_size=16, tick_rot=45, tick_fontsize=12, figsize=(10, 6),
+        colors=None, upper_offset=0.1, lower_offset=0.3
 ):
     """"""
     # if show_season=True show each team's seasons data separately
     # and set colors for bars to highlight bars of marked team
     if show_season:
         season_srs = df['season'].map(str).str.split('20', expand=True).iloc[:, 1]
-        df['team_season'] = df[team_colname] + season_srs
+        df['team_season'] = df['team'] + season_srs
         team_colname = 'team_season'
-        team_colors = {
-            team_code: (colors[1] if marked_team in team_code else colors[0])
-            for team_code in df[team_colname].unique()
-        }
     else:
-        team_colors = {team: colors[0] for team in df[team_colname].unique()}
-        team_colors[marked_team] = colors[1]
+        team_colname = 'team'
+
+    # set color for each team's bars:
+    if marked_teams is None:
+        teams_colors = {team: colors[1] for team in df[team_colname].unique()}
+    else:
+
+        if not colors:
+
+            if len(marked_teams) == 1:
+                colors = ['tab:orange', 'tab:blue']
+            else:
+                colors = ['tab:orange', 'tab:blue', 'tab:gray']
+
+        teams_colors = {team: colors[-1] for team in df[team_colname].unique()}
+
+        for color_num, team_code in enumerate(marked_teams):
+            team_mask = df[team_colname].str.contains(team_code)
+
+            for team_value in df.loc[team_mask, team_colname].tolist():
+                teams_colors[team_value] = colors[color_num]
 
     # subset data
     data = df[[metric, team_colname]].sort_values(by=metric)
@@ -240,7 +257,7 @@ def sorted_barplot(
         fig, ax = plt.subplots(figsize)
 
     # plot bars
-    sns.barplot(data=data, x=team_colname, y=metric, ax=ax, palette=team_colors)
+    sns.barplot(data=data, x=team_colname, y=metric, ax=ax, palette=teams_colors)
 
     # set y axis limits
     if data[metric].min() < 0:
@@ -253,7 +270,7 @@ def sorted_barplot(
 
     # rotate x axis tick labels
     for tick in ax.get_xticklabels():
-        tick.set_fontsize(14)
+        tick.set_fontsize(tick_fontsize)
         tick.set_rotation(tick_rot)
 
     # print values on top of bars
@@ -277,9 +294,8 @@ def sorted_barplot(
 
 def plot_parallel_pairs(
         df, metric, iv='team', time_var='season', ax=None, figsize=(6, 10),
-        marked_iv_value='MTA', points_color='tab:blue',
-        lines_color='tab:gray', marked_line_color='tab:orange',
-        annot_size='small', x_offset=0.025, x_ticklabel_size=16
+        marked_iv_values=None, annot_size='small', x_offset=0.025,
+        x_ticklabel_size=14, annotate_only_marked=False, marked_line_colors=None
 ):
     """"""
     # restructure dataframe
@@ -296,16 +312,31 @@ def plot_parallel_pairs(
 
     n_obs = df.shape[0]
 
+    if marked_iv_values is None:
+        marked_iv_values = []
+
     # plot points for each time point
     for x_loc, time_point in enumerate(time_points):
         metric_name = '{}_{}'.format(metric, time_point)
         x_values = np.ones(n_obs) * x_loc
+        points_color = 'tab:gray' if len(marked_iv_values) > 1 else 'tab:blue'
         ax.scatter(x=x_values, y=df[metric_name], c=points_color)
 
         # loop over rows in df
         for row_num in range(n_obs):
             iv_value = df[iv].iloc[row_num]
             curr_metric_value = df[metric_name].iloc[row_num]
+
+            # set text to annotate and its alpha
+            if iv_value in marked_iv_values:
+                text = iv_value
+                txt_alpha = 1
+            elif annotate_only_marked is False:
+                text = iv_value
+                txt_alpha = 0.5
+            else:
+                text = ''
+                txt_alpha = 0
 
             # add current annotation
             if np.isfinite(curr_metric_value):
@@ -317,17 +348,36 @@ def plot_parallel_pairs(
                     txt_x_loc = x_loc + x_offset
                     ha = 'left'
 
-                ax.text(x=txt_x_loc, y=curr_metric_value, s=iv_value,
-                        ha=ha, va='center', size=annot_size)
+                ax.text(x=txt_x_loc, y=curr_metric_value, s=text,
+                        ha=ha, va='center', size=annot_size, alpha=txt_alpha)
 
     # plot current line, work-around. assumes only 2 iv values.
     # fix later or use this loop to annotate as well instead of inner loop above
+    if marked_line_colors is None:
+        marked_line_colors = ['tab:blue', 'tab:orange']
+
+    color_num = 0
+
     for row_num in range(n_obs):
         iv_value = df[iv].iloc[row_num]
+
+        if iv_value in marked_iv_values:
+            color = marked_line_colors[color_num]
+            color_num += 1
+        else:
+            color = 'tab:gray'
+
         metric_0 = df.iloc[row_num, 1]
         metric_1 = df.iloc[row_num, 2]
-        color = marked_line_color if iv_value == marked_iv_value else lines_color
-        ax.plot([0, 1], [metric_0, metric_1], c=color)
+
+        if (np.isfinite(metric_0)) & (np.isfinite(metric_1)):
+
+            if iv_value in marked_iv_values:
+                alpha = 1
+            else:
+                alpha = 0.5
+
+            ax.plot([0, 1], [metric_0, metric_1], c=color, alpha=alpha)
 
     ax.set_xlim((-0.25, 1.25))
     ax.set_xticks([0, 1])
