@@ -135,7 +135,7 @@ def get_teams_stats(seasons_rounds, scraped_until_round=0, overwrite=False):
 
 def plot_bivariate(
         df, x, y, hue=None, show_season=True, annotate_only_hue_true=False,
-        dont_annotate_hue_na=True, fit_reg=False, xyline=False,
+        dont_annotate_hue_na=True, fit_reg=False, xyline=False, ax=None,
         figsize=(10, 8), suptitle=None, text_size='medium',
         suptitle_size=14, axes_labels_size=14
 ):
@@ -155,8 +155,16 @@ def plot_bivariate(
             text_colors[marked_team] = annotations_colors[marked_team_num]
 
     # create axis and plot
-    fig, ax = plt.subplots(figsize=figsize)
+    return_fig = False
 
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+        return_fig = True
+
+        if suptitle:
+            fig.suptitle(suptitle, fontsize=suptitle_size)
+
+    # plot points (and regression line, if fit_reg=True)
     p1 = sns.regplot(
         data=df, x=x, y=y, ax=ax, fit_reg=fit_reg, ci=False, color=plot_color,
         line_kws={'label': 'linear corr = {0:.2f}'.format(df[x].corr(df[y]))},
@@ -193,6 +201,7 @@ def plot_bivariate(
     ax.set_xlabel(stats_descriptions[x], fontsize=axes_labels_size)
     ax.set_ylabel(stats_descriptions[y], fontsize=axes_labels_size)
 
+    # add a diagonal line where x=y
     if xyline:
         lims = [
             np.min([ax.get_xlim(), ax.get_ylim()]),
@@ -203,14 +212,12 @@ def plot_bivariate(
                 color='black', alpha=0.75)
         ax.set_aspect('equal')
 
-    if suptitle:
-        fig.suptitle(suptitle, fontsize=suptitle_size)
-
     # if plotting regression line or xy line add legend with correlation value
     if fit_reg | xyline:
         ax.legend()
 
-    return fig, ax
+    if return_fig:
+        return fig, ax
 
 
 def sorted_barplot(
