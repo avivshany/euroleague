@@ -29,6 +29,8 @@ stats_descriptions = {
     'OP_eFG%': 'Opponents effective field goal %',
     'PTS40': 'Points per 40 minutes',
     'OP_PTS40': 'Points conceded per 40 minutes',
+    'PTS': 'Total points scored',
+    'OP_PTS': 'Total points conceded',
     'TS%': 'True shooting %',
     'OP_TS%': 'Opponents True shooting %',
     'OREB%': 'Offensive rebounds %\n(% of rebounds grabbed under opponents basket)',
@@ -261,7 +263,7 @@ def sorted_barplot(
 
     # get axis to plot
     if not ax:
-        fig, ax = plt.subplots(figsize)
+        fig, ax = plt.subplots(figsize=figsize)
 
     # plot bars
     sns.barplot(data=data, x=team_colname, y=metric, ax=ax, palette=teams_colors)
@@ -300,39 +302,103 @@ def sorted_barplot(
 
 
 def plot_parallel_pairs(
-        df, metric, iv='team', time_var='season', ax=None, figsize=(6, 10),
-        marked_iv_values=None, annot_size='small', x_offset=0.025,
+        df, metrics, kind='by_time', iv='team', time_var='season', ax=None,
+        figsize=(6, 10), marked_iv_values=None, annot_size='small',
         x_ticklabel_size=14, annotate_only_marked=False, marked_line_colors=None
 ):
     """"""
-    # restructure dataframe
-    df = df.sort_values(by=time_var)
-    time_points = list(df[time_var].dropna().unique())
-    df = df[[iv, time_var, metric]].set_index([iv, time_var])
-    df = df.unstack()
-    df.columns = ['{}_{}'.format(metric, time) for time in time_points]
-    df = df.reset_index()
+    # validate metrics input
+    if not isinstance(metrics, list):
+        raise TypeError('metrics must be a list of column names in df')
 
     # get axis to plot
     if not ax:
-        fig, ax = plt.subplots(figsize)
+        fig, ax = plt.subplots(figsize=figsize)
 
-    n_obs = df.shape[0]
+    # set initial parameters for helper functions
+    kwargs = {'iv': iv, 'ax': ax, 'marked_iv_values': marked_iv_values}
+
+    if kind == 'by_time':
+
+        if len(metrics) != 1:
+            txt = "When kind='by_time' metrics should contain one column names"
+            raise ValueError(txt)
+
+        # restructure dataframe
+        df = df.sort_values(by=time_var)
+        time_points = list(df[time_var].dropna().unique())
+        df = df[[iv, time_var, metrics[0]]].set_index([iv, time_var])
+        df = df.unstack()
+        df.columns = ['{}_{}'.format(metrics[0], time) for time in time_points]
+        df = df.reset_index()
+
+        # set parameters for helper functions
+        kwargs['df'] = df
+        kwargs['DVs'] = [col for col in df.columns if col != iv]
+        xtick_labels = ['2018/19', '2019/20']
+
+    elif kind == 'ranking':
+
+        if len(metrics) != 2:
+            txt = "When kind='ranking' metrics should contain 2 column names"
+            raise ValueError(txt)
+
+        # assign ranks to relevant metrics
+        df = df.assign(
+            rank_0=df[metrics[0]].rank(ascending=False).astype(int),
+            rank_1=df[metrics[1]].rank(ascending=False).astype(int)
+        )
+
+        # set parameters for helper functions
+        kwargs['df'] = df
+        kwargs['DVs'] = ['rank_0', 'rank_1']
+        xtick_labels = [name + '\nranking' for name in metrics]
+        ax.set_yticks(range(1, df.shape[0] + 1))
+        ax.invert_yaxis()
+
+    else:
+        raise ValueError("kind must be either 'by_time' or 'ranking'")
 
     if marked_iv_values is None:
-        marked_iv_values = []
+        kwargs['marked_iv_values'] = []
 
     # plot points for each time point
-    for x_loc, time_point in enumerate(time_points):
-        metric_name = '{}_{}'.format(metric, time_point)
-        x_values = np.ones(n_obs) * x_loc
+    _parallel_pairs_points_annotations(
+        annot_size=annot_size, annotate_only_marked=annotate_only_marked,
+        **kwargs
+    )
+
+    # plot current line, work-around. assumes only 2 iv values.
+    ax = _parallel_pairs_lines(
+        default_line_color='tab:gray', marked_line_colors=marked_line_colors,
+        **kwargs
+    )
+
+    ax.set_xlim(-0.25, 1.25)
+    ax.set_xticks([0, 1])
+    ax.set_xticklabels(xtick_labels)
+
+    for tick in ax.xaxis.get_major_ticks():
+        tick.label.set_fontsize(x_ticklabel_size)
+
+    return ax
+
+
+def _parallel_pairs_points_annotations(
+        df, iv, DVs, ax, marked_iv_values, annotate_only_marked,
+        annot_size, x_offset=0.025, va='center'
+):
+    """Helper function for drawing points and annotating plot_parallel_pairs"""
+    # plot points for each time point
+    for dv_num, dv in enumerate(DVs):
+        x_values = np.ones(df.shape[0]) * dv_num
         points_color = 'tab:gray' if len(marked_iv_values) > 1 else 'tab:blue'
-        ax.scatter(x=x_values, y=df[metric_name], c=points_color)
+        ax.scatter(x=x_values, y=df[dv], c=points_color)
 
         # loop over rows in df
-        for row_num in range(n_obs):
+        for row_num in range(df.shape[0]):
             iv_value = df[iv].iloc[row_num]
-            curr_metric_value = df[metric_name].iloc[row_num]
+            curr_dv_value = df[dv].iloc[row_num]
 
             # set text to annotate and its alpha
             if iv_value in marked_iv_values:
@@ -346,52 +412,59 @@ def plot_parallel_pairs(
                 txt_alpha = 0
 
             # add current annotation
-            if np.isfinite(curr_metric_value):
+            if pd.notna(curr_dv_value):
 
-                if x_loc == 0:
-                    txt_x_loc = x_loc - x_offset
+                if dv_num == 0:
+                    txt_x_loc = dv_num - x_offset
                     ha = 'right'
                 else:
-                    txt_x_loc = x_loc + x_offset
+                    txt_x_loc = dv_num + x_offset
                     ha = 'left'
 
-                ax.text(x=txt_x_loc, y=curr_metric_value, s=text,
-                        ha=ha, va='center', size=annot_size, alpha=txt_alpha)
+                ax.text(x=txt_x_loc, y=curr_dv_value, s=text,
+                        ha=ha, va=va, size=annot_size, alpha=txt_alpha)
 
-    # plot current line, work-around. assumes only 2 iv values.
-    # fix later or use this loop to annotate as well instead of inner loop above
+    return ax
+
+
+def _parallel_pairs_lines(
+        df, iv, DVs, ax, marked_iv_values, marked_line_colors,
+        default_line_color
+):
+    """Helper function for drawing lines in parallel pairs plot"""
+    if len(DVs) != 2:
+        raise ValueError('Supports only 2 dependent variables')
+
     if marked_line_colors is None:
-        marked_line_colors = ['tab:blue', 'tab:orange']
+
+        if len(marked_iv_values) < 2:
+            marked_line_colors = ['tab:orange']
+        elif len(marked_iv_values) == 2:
+            marked_line_colors = ['tab:blue', 'tab:orange']
+        else:
+            raise ValueError('Can support up to two marked IV values')
 
     color_num = 0
 
-    for row_num in range(n_obs):
+    for row_num in range(df.shape[0]):
         iv_value = df[iv].iloc[row_num]
 
         if iv_value in marked_iv_values:
             color = marked_line_colors[color_num]
             color_num += 1
         else:
-            color = 'tab:gray'
+            color = default_line_color
 
-        metric_0 = df.iloc[row_num, 1]
-        metric_1 = df.iloc[row_num, 2]
+        curr_dv_0 = df[DVs[0]].iloc[row_num]
+        curr_dv_1 = df[DVs[1]].iloc[row_num]
 
-        if (np.isfinite(metric_0)) & (np.isfinite(metric_1)):
+        if (np.isfinite(curr_dv_0)) & (np.isfinite(curr_dv_1)):
 
             if iv_value in marked_iv_values:
                 alpha = 1
             else:
                 alpha = 0.5
 
-            ax.plot([0, 1], [metric_0, metric_1], c=color, alpha=alpha)
+            ax.plot([0, 1], [curr_dv_0, curr_dv_1], c=color, alpha=alpha)
 
-    ax.set_xlim((-0.25, 1.25))
-    ax.set_xticks([0, 1])
-    ax.set_xticklabels(['2018/19', '2019/20'])
-
-    for tick in ax.xaxis.get_major_ticks():
-        tick.label.set_fontsize(x_ticklabel_size)
-
-    if not ax:
-        return fig, ax
+    return ax
