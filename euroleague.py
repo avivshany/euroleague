@@ -223,7 +223,7 @@ def plot_bivariate(
 
 
 def sorted_barplot(
-        df, metric, ax=None, marked_teams=None, show_season=True,
+        df, metric, ax=None, marked_teams=None, show_season=False,
         title_size=16, tick_rot=45, tick_fontsize=12, figsize=(10, 6),
         colors=None, upper_offset=0.1, lower_offset=0.3
 ):
