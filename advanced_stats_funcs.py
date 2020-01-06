@@ -213,11 +213,11 @@ def get_team_advanced_stats(df):
     df['NETRtg'] = df['ORtg'] - df['DRtg']
 
     cols_to_use = [
-        'team', 'PTS40', 'OP_PTS40', '3P%', 'OP_3P%', '2P%', 'OP_2P%', 'FT%',
-        '3PR', 'OP_3PR', 'FTR', 'OP_FTR', 'OREB%', 'DREB%', 'ASTR', 'OP_ASTR',
-        'TOVR', 'OP_TOVR', 'AST-TOV_R', 'OP_AST-TOV_R', 'STLR', 'OP_STLR',
-        'BLKR', 'OP_BLKR', 'PACE', 'ORtg', 'DRtg', 'NETRtg', 'eFG%', 'OP_eFG%',
-        'TS%', 'OP_TS%'
+        'team', 'PTS40', 'OP_PTS40', 'PTS', 'OP_PTS', '3P%', 'OP_3P%', '2P%',
+        'OP_2P%', 'FT%', '3PR', 'OP_3PR', 'FTR', 'OP_FTR', 'OREB%', 'DREB%',
+        'ASTR', 'OP_ASTR', 'TOVR', 'OP_TOVR', 'AST-TOV_R', 'OP_AST-TOV_R',
+        'STLR', 'OP_STLR', 'BLKR', 'OP_BLKR', 'PACE', 'ORtg', 'DRtg', 'NETRtg',
+        'eFG%', 'OP_eFG%', 'TS%', 'OP_TS%'
     ]
 
     return df[cols_to_use]
