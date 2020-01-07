@@ -85,8 +85,8 @@ def get_home_advantage_vars(games_stats):
         atr.away_DRtg,
         atr.away_NETRtg,
         htr.home_NETRtg - atr.away_NETRtg AS home_NETRtg_advantage,
-        htr.home_ORtg - atr.away_ORtg AS home_ORTg_advantage,
-        atr.away_DRtg - htr.home_DRtg AS home_DRTg_advantage
+        htr.home_ORtg - atr.away_ORtg AS home_ORtg_advantage,
+        atr.away_DRtg - htr.home_DRtg AS home_DRtg_advantage
     FROM home_team_ratings AS htr
     JOIN away_team_ratings AS atr
         ON htr.home_team = atr.away_team
