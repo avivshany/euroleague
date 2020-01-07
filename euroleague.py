@@ -239,7 +239,7 @@ def sorted_barplot(
 
     # set color for each team's bars:
     if marked_teams is None:
-        teams_colors = {team: colors[1] for team in df[team_colname].unique()}
+        teams_colors = {team: 'tab:orange' for team in df[team_colname].unique()}
     else:
 
         if not colors:
