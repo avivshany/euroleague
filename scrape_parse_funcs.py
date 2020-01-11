@@ -6,35 +6,68 @@ import math
 _teams_codes_map_general = {
     'Anadolu Efes Istanbul': 'IST',
     'CSKA Moscow': 'CSK',
-    'FC Bayern Munich': 'MUN',
-    'Fenerbahce Beko Istanbul': 'ULK',
-    'Khimki Moscow Region': 'KHI',
-    'KIROLBET Baskonia Vitoria-Gasteiz': 'BAS',
     'Maccabi FOX Tel Aviv': 'TEL',
     'Olympiacos Piraeus': 'OLY',
     'Real Madrid': 'MAD',
-    'Panathinaikos OPAP Athens': 'PAN',
     'Zalgiris Kaunas': 'ZAL'
+}
+_teams_codes_map_2016 = {
+    'EA Emporio Armani Milan': 'MIL',
+    'Panathinaikos Superfoods Athens': 'PAN',
+    'Baskonia Vitoria Gasteiz': 'BAS',
+    'Fenerbahce Istanbul': 'ULK',
+    'Darussafaka Dogus Istanbul': 'DAR',
+    'FC Barcelona Lassa': 'BAR',
+    'Brose Bamberg': 'BAM',
+    'Crvena Zvezda mts Belgrade': 'RED',
+    'Galatasaray Odeabank Istanbul': 'GAL',
+    'Unics Kazan': 'UNK'
+}
+_teams_codes_map_2017 = {
+    'AX Armani Exchange Olimpia Milan': 'MIL',
+    'Panathinaikos Superfoods Athens': 'PAN',
+    'KIROLBET Baskonia Vitoria Gasteiz': 'BAS',
+    'Fenerbahce Dogus Istanbul': 'ULK',
+    'Khimki Moscow Region': 'KHI',
+    'FC Barcelona Lassa': 'BAR',
+    'Brose Bamberg': 'BAM',
+    'Crvena Zvezda mts Belgrade': 'RED',
+    'Unicaja Malaga': 'MAL',
+    'Valencia Basket': 'PAM'
 }
 _teams_codes_map_2018 = {
     'AX Armani Exchange Olimpia Milan': 'MIL',
+    'Panathinaikos OPAP Athens': 'PAN',
+    'KIROLBET Baskonia Vitoria-Gasteiz': 'BAS',
+    'Fenerbahce Beko Istanbul': 'ULK',
+    'Khimki Moscow Region': 'KHI',
     'FC Barcelona Lassa': 'BAR',
     'Buducnost VOLI Podgorica': 'BUD',
     'Darussafaka Tekfen Istanbul': 'DAR',
+    'FC Bayern Munich': 'MUN',
     'Herbalife Gran Canaria': 'CAN'
 }
 _teams_codes_map_2019 = {
     'AX Armani Exchange Milan': 'MIL',
+    'Panathinaikos OPAP Athens': 'PAN',
+    'KIROLBET Baskonia Vitoria-Gasteiz': 'BAS',
+    'Fenerbahce Beko Istanbul': 'ULK',
+    'Khimki Moscow Region': 'KHI',
     'FC Barcelona': 'BAR',
     'Crvena Zvezda mts Belgrade': 'RED',
     'Valencia Basket': 'PAM',
     'ALBA Berlin': 'BER',
     'LDLC ASVEL Villeurbanne': 'ASV',
+    'FC Bayern Munich': 'MUN',
     'Zenit St Petersburg': 'DYR'
 }
-teams_codes_map_all = dict(_teams_codes_map_general, **_teams_codes_map_2018,
-                           **_teams_codes_map_2019)
+teams_codes_map_all = {
+    **_teams_codes_map_general, **_teams_codes_map_2016,
+    **_teams_codes_map_2017, **_teams_codes_map_2018, **_teams_codes_map_2019
+}
 teams_names_codes_map = {
+    2016: dict(_teams_codes_map_general, **_teams_codes_map_2016),
+    2017: dict(_teams_codes_map_general, **_teams_codes_map_2017),
     2018: dict(_teams_codes_map_general, **_teams_codes_map_2018),
     2019: dict(_teams_codes_map_general, **_teams_codes_map_2019)
 }
@@ -44,7 +77,7 @@ _n_teams_per_season = {
 }
 recognizable_team_codes = {
     'MAD': 'RMD', 'TEL': 'MTA', 'PAM': 'VAL', 'PAN': 'PAO',
-    'ULK': 'FNR', 'DYR': 'ZEN', 'IST': 'EFS'
+    'ULK': 'FNR', 'DYR': 'ZEN', 'IST': 'EFS', 'UNK': 'KAZ'
 }
 
 
