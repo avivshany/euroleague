@@ -58,7 +58,9 @@ stats_descriptions = {
     'away_ORtg': 'Offensive rating in away games',
     'away_DRtg': 'Defensive rating in away games',
     'away_NETRtg': 'Net rating in away games',
-    'home_NETRtg_advantage': 'Home net rating - Away net_rating'
+    'home_NETRtg_advantage': 'Home net rating - Away net_rating',
+    'PFR': 'Fouls committed per 100 possessions',
+    'PFDR': 'Fouls drawn per 100 possessions'
 }
 
 
