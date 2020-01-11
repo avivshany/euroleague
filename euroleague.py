@@ -127,8 +127,7 @@ def get_teams_stats(seasons_rounds, scraped_until_round=0, overwrite=False):
             season_home_advantage, on='team', validate='1:1'
         )
 
-        # add season column and concatenate this season's stats with all seasons
-        season_teams_stats['season'] = season
+        # concatenate this season's stats with all seasons
         teams_stats = pd.concat([teams_stats, season_teams_stats], sort=False)
         teams_stats.reset_index(inplace=True, drop=True)
 
@@ -147,10 +146,11 @@ def get_games_advanced_stats(seasons_rounds):
         # if file does not exist raise error
         if os.path.exists(games_stats_path):
             season_games_stats = pd.read_csv(games_stats_path)
-            season_games_stats['season'] = season
+            # season_games_stats['season'] = season
             all_games_stats = pd.concat([all_games_stats, season_games_stats])
         else:
-            raise ValueError(games_stats_path + ' does not exist')
+            txt = "\nRun 'get_teams_stats' with the same seasons_rounds to scrape data"
+            raise ValueError(games_stats_path + ' does not exist.' + txt)
 
     # calculate advanced stats
     all_games_stats = asf.get_advanced_stats(all_games_stats, opponents_stats=False)
