@@ -106,7 +106,7 @@ def get_teams_stats(seasons_rounds, scraped_until_round=0, overwrite=False):
                 scrape_all = True
 
         if scrape_all:
-            print('Scraping all game stats data for season {}'.format(season))
+            print(f'Scraping all game stats for season {season} until round {n_rounds}')
             season_games_stats = sp.get_games_stats(
                 season=season, completed_rounds=n_rounds,
                 rounds_already_scraped=scraped_until_round
@@ -120,7 +120,7 @@ def get_teams_stats(seasons_rounds, scraped_until_round=0, overwrite=False):
         season_teams_stats = asf.get_overall_teams_opponents_stats(
             games_stats_df=season_games_stats, season=season
         )
-        season_teams_stats = asf.get_team_advanced_stats(season_teams_stats)
+        season_teams_stats = asf.get_advanced_stats(season_teams_stats)
 
         # join teams advances stats with win ratios
         season_teams_stats = season_teams_stats.merge(
@@ -133,6 +133,30 @@ def get_teams_stats(seasons_rounds, scraped_until_round=0, overwrite=False):
         teams_stats.reset_index(inplace=True, drop=True)
 
     return teams_stats
+
+
+def get_games_advanced_stats(seasons_rounds):
+    """"""
+    all_games_stats = pd.DataFrame()
+
+    # get all data from CSVs
+    for season in seasons_rounds.keys():
+        n_rounds = seasons_rounds[season]
+        games_stats_path = 'games_stats_{}_r{}.csv'.format(season, n_rounds)
+
+        # if file does not exist raise error
+        if os.path.exists(games_stats_path):
+            season_games_stats = pd.read_csv(games_stats_path)
+            season_games_stats['season'] = season
+            all_games_stats = pd.concat([all_games_stats, season_games_stats])
+        else:
+            raise ValueError(games_stats_path + ' does not exist')
+
+    # calculate advanced stats
+    all_games_stats = asf.get_advanced_stats(all_games_stats, opponents_stats=False)
+    all_games_stats.reset_index(inplace=True, drop=True)
+
+    return all_games_stats
 
 
 def plot_bivariate(
