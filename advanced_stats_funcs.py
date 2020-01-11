@@ -197,6 +197,9 @@ def get_advanced_stats(df, opponents_stats=True):
     if not opponents_stats:
         df = get_games_opponents_stats(df)
 
+    # get better estimation for possessions
+    df['possessions'] = (df['POSS'] + df['OP_POSS']) / 2
+
     # calculate field goal attempts and estimated chances
     df['FGA'] = df['2PA'] + df['3PA']
     df['CHANCES'] = df['FGA'] + (0.44 * df['FTA'])
@@ -222,34 +225,36 @@ def get_advanced_stats(df, opponents_stats=True):
     df['3PR'] = 100 * df['3PA'] / (df['FGA'])
     df['FTR'] = 100 * df['FTA'] / (df['FGA'])
     df['ASTR'] = 100 * df['AST'] / (df['2PM'] + df['3PM'])
-    df['TOVR'] = 100 * df['TOV'] / df['POSS']
+    df['TOVR'] = 100 * df['TOV'] / df['possessions']
     df['AST-TOV_R'] = df['AST'] / df['TOV']
-    df['OP_STLR'] = 100 * df['OP_STL'] / df['POSS']
+    df['OP_STLR'] = 100 * df['OP_STL'] / df['possessions']
     df['OP_BLKR'] = 100 * df['OP_BLK'] / df['2PA']
+    df['PFDR'] = 100 * df['PFD'] / df['possessions']
 
     # calculate rate stats indicating defensive style of play
-    df['STLR'] = 100 * df['STL'] / df['OP_POSS']
+    df['STLR'] = 100 * df['STL'] / df['possessions']
     df['BLKR'] = 100 * df['BLK'] / df['OP_2PA']
     df['OP_3PR'] = 100 * df['OP_3PA'] / df['OP_FGA']
     df['OP_FTR'] = 100 * df['OP_FTA'] / df['OP_FGA']
     df['OP_ASTR'] = 100 * df['OP_AST'] / (df['OP_2PM'] + df['OP_3PM'])
-    df['OP_TOVR'] = 100 * df['OP_TOV'] / df['OP_POSS']
+    df['OP_TOVR'] = 100 * df['OP_TOV'] / df['possessions']
     df['OP_AST-TOV_R'] = df['OP_AST'] / df['OP_TOV']
+    df['PFR'] = 100 * df['PF'] / df['possessions']
 
     # calculate pace and rating stats indicating overall team efficiency
     df['PTS40'] = 40 * 5 * df['PTS'] / df['MTS']
     df['OP_PTS40'] = 40 * 5 * df['OP_PTS'] / df['OP_MTS']
     df['PACE'] = 40 * (df['POSS'] + df['OP_POSS']) / (2 * (df['MTS'] / 5))
-    df['ORtg'] = 100 * df['PTS'] / df['POSS']
-    df['DRtg'] = 100 * df['OP_PTS'] / df['OP_POSS']
+    df['ORtg'] = 100 * df['PTS'] / df['possessions']
+    df['DRtg'] = 100 * df['OP_PTS'] / df['possessions']
     df['NETRtg'] = df['ORtg'] - df['DRtg']
 
     cols_to_use = [
         'season', 'team', 'PTS40', 'OP_PTS40', 'PTS', 'OP_PTS', '3P%', 'OP_3P%',
         '2P%', 'OP_2P%', 'FT%', '3PR', 'OP_3PR', 'FTR', 'OP_FTR', 'OREB%',
-        'DREB%', 'ASTR', 'OP_ASTR', 'TOVR', 'OP_TOVR', 'AST-TOV_R',
-        'OP_AST-TOV_R', 'STLR', 'OP_STLR', 'BLKR', 'OP_BLKR', 'PACE',
-        'ORtg', 'DRtg', 'NETRtg', 'eFG%', 'OP_eFG%', 'TS%', 'OP_TS%'
+        'DREB%', 'ASTR', 'OP_ASTR', 'TOVR', 'OP_TOVR', 'PFR', 'PFDR',
+        'AST-TOV_R', 'OP_AST-TOV_R', 'STLR', 'OP_STLR', 'BLKR', 'OP_BLKR',
+        'PACE', 'ORtg', 'DRtg', 'NETRtg', 'eFG%', 'OP_eFG%', 'TS%', 'OP_TS%'
     ]
 
     if not opponents_stats:
